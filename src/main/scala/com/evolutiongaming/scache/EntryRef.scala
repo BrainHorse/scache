@@ -1,9 +1,8 @@
 package com.evolutiongaming.scache
 
 import cats.Applicative
-import cats.effect.Concurrent
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.implicits._
+import cats.effect.{Concurrent, Deferred, Ref}
+import cats.effect.syntax.all._
 import cats.syntax.all._
 
 trait EntryRef[F[_], A] {
@@ -51,7 +50,10 @@ object EntryRef {
                   val update = entry
                     .deferred
                     .complete(value.asRight)
-                    .handleErrorWith { _ => value.release.combineAll }
+                    .flatMap {
+                      case true => Applicative[F].unit
+                      case false => value.release.combineAll
+                    }
                   (value, update)
               }
               .flatten
@@ -66,7 +68,7 @@ object EntryRef {
                     entry
                       .deferred
                       .complete(error.asLeft)
-                      .handleError { _ => () }
+                      .void
                   }
               }
         }

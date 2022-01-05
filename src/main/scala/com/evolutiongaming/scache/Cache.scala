@@ -1,14 +1,13 @@
 package com.evolutiongaming.scache
 
-import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.kernel.Temporal
+import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import cats.kernel.Hash
 import cats.{Functor, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.smetrics.MeasureDuration
-
-import scala.concurrent.duration._
 
 trait Cache[F[_], K, V] {
 
@@ -123,7 +122,7 @@ object Cache {
     implicit val hash = Hash.fromUniversalHashCode[K]
 
     val result = for {
-      nrOfPartitions <- Resource.liftF(partitions.fold(NrOfPartitions[F]())(_.pure[F]))
+      nrOfPartitions <- Resource.eval(partitions.fold(NrOfPartitions[F]())(_.pure[F]))
       cache           = LoadingCache.of(LoadingCache.EntryRefs.empty[F, K, V])
       partitions     <- Partitions.of[Resource[F, *], K, Cache[F, K, V]](nrOfPartitions, _ => cache)
     } yield {
@@ -132,48 +131,7 @@ object Cache {
     result.breakFlatMapChain
   }
 
-
-  @deprecated("use `expiring` with `config` argument", "2.3.0")
-  def expiring[F[_]: Concurrent: Timer: Runtime: Parallel, K, V](
-    expireAfter: FiniteDuration,
-  ): Resource[F, Cache[F, K, V]] = {
-    expiring(
-      ExpiringCache.Config(expireAfterRead = expireAfter),
-      none)
-  }
-
-  @deprecated("use `expiring` with `config` argument", "2.3.0")
-  def expiring[F[_]: Concurrent: Timer: Runtime: Parallel, K, V](
-    expireAfter: FiniteDuration,
-    maxSize: Option[Int],
-    refresh: Option[ExpiringCache.Refresh[K, F[V]]]
-  ): Resource[F, Cache[F, K, V]] = {
-    expiring(
-      ExpiringCache.Config(
-        expireAfterRead = expireAfter,
-        maxSize = maxSize,
-        refresh = refresh.map { refresh => refresh.copy(value = (k: K) => refresh.value(k).map { _.some }) }),
-      none)
-  }
-
-
-  @deprecated("use `expiring` with `config` argument", "2.3.0")
-  def expiring[F[_]: Concurrent: Timer: Runtime: Parallel, K, V](
-    expireAfter: FiniteDuration,
-    maxSize: Option[Int],
-    refresh: Option[ExpiringCache.Refresh[K, F[V]]],
-    partitions: Option[Int]
-  ): Resource[F, Cache[F, K, V]] = {
-    expiring(
-      ExpiringCache.Config(
-        expireAfterRead = expireAfter,
-        maxSize = maxSize,
-        refresh = refresh.map { refresh => refresh.copy(value = (k: K) => refresh.value(k).map { _.some }) }),
-      partitions)
-  }
-
-
-  def expiring[F[_]: Concurrent: Timer: Runtime: Parallel, K, V](
+  def expiring[F[_]: Temporal: Runtime: Parallel, K, V](
     config: ExpiringCache.Config[F, K, V],
     partitions: Option[Int] = None
   ): Resource[F, Cache[F, K, V]] = {
@@ -181,7 +139,7 @@ object Cache {
     implicit val hash = Hash.fromUniversalHashCode[K]
 
     val result = for {
-      nrOfPartitions <- Resource.liftF(partitions.fold(NrOfPartitions[F]())(_.pure[F]))
+      nrOfPartitions <- Resource.eval(partitions.fold(NrOfPartitions[F]())(_.pure[F]))
       config1         = config
         .maxSize
         .fold {
@@ -203,8 +161,7 @@ object Cache {
 
     def withMetrics(
       metrics: CacheMetrics[F])(implicit
-      F: Concurrent[F],
-      timer: Timer[F],
+      temporal: Temporal[F],
       measureDuration: MeasureDuration[F]
     ): Resource[F, Cache[F, K, V]] = {
       CacheMetered(self, metrics)

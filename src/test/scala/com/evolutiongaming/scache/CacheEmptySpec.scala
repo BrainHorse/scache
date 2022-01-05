@@ -1,7 +1,7 @@
 package com.evolutiongaming.scache
 
 
-import cats.effect.concurrent.Deferred
+import cats.effect.Deferred
 import cats.effect.{IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.scache.IOSuite._
@@ -84,8 +84,8 @@ class CacheEmptySpec extends AsyncFunSuite with Matchers {
       value0   <- cache.getOrUpdateEnsure(0) { deferred.get }
       value2   <- cache.getOrUpdate(0)(1.pure[IO]).startEnsure
       _        <- deferred.complete(0)
-      value0   <- value0.join
-      value1   <- value2.join
+      value0   <- value0.joinWithNever
+      value1   <- value2.joinWithNever
     } yield {
       value0 shouldEqual 0
       value1 shouldEqual 1

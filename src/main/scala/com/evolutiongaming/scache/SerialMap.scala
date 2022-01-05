@@ -2,7 +2,7 @@ package com.evolutiongaming.scache
 
 import cats.Applicative
 import cats.effect.Concurrent
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Runtime, SerialRef}
