@@ -389,7 +389,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
     }
 
 
-    ignore(s"getOrUpdateReleasable: $name") {
+    test(s"getOrUpdateReleasable: $name") {
       val result = cache.use { cache =>
         for {
           deferred <- Deferred[IO, Releasable[IO, Int]]
@@ -408,7 +408,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
     }
 
 
-    ignore(s"getOrUpdateReleasableOpt: $name") {
+    test(s"getOrUpdateReleasableOpt: $name") {
       val result = cache.use { cache =>
         for {
           deferred <- Deferred[IO, Option[Releasable[IO, Int]]]
