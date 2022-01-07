@@ -1,6 +1,6 @@
 package com.evolutiongaming.scache
 
-import cats.effect.{Concurrent, Ref, Resource}
+import cats.effect.{Concurrent, MonadCancel, Ref, Resource}
 import cats.effect.implicits._
 import cats.syntax.all._
 
@@ -11,17 +11,17 @@ object LoadingCache {
 
   private sealed abstract class LoadingCache
 
-  private[scache] def of[F[_] : Concurrent, K, V](
+  private[scache] def of[F[_]: Concurrent, K, V](
     map: EntryRefs[F, K, V],
   ): Resource[F, Cache[F, K, V]] = {
     for {
-      ref   <- Resource.eval(Ref[F].of(map))
+      ref <- Resource.eval(Ref[F].of(map))
       cache <- of(ref)
     } yield cache
   }
 
 
-  private[scache] def of[F[_] : Concurrent, K, V](
+  private[scache] def of[F[_]: Concurrent, K, V](
     ref: Ref[F, EntryRefs[F, K, V]],
   ): Resource[F, Cache[F, K, V]] = {
     Resource.make {
@@ -32,7 +32,7 @@ object LoadingCache {
   }
 
 
-  private[scache] def apply[F[_] : Concurrent, K, V](
+  private[scache] def apply[F[_]: Concurrent, K, V](
     ref: Ref[F, EntryRefs[F, K, V]],
   ): Cache[F, K, V] = {
 
@@ -84,16 +84,17 @@ object LoadingCache {
               EntryRef
                 .loading(loaded, ref.update { _ - key })
                 .flatMap { case (entryRef, load) =>
-                  ref
-                    .modify { entryRefs =>
-                      entryRefs.get(key).fold {
-                        (entryRefs.updated(key, entryRef), load)
-                      } { entryRef =>
-                        (entryRefs, entryRef.get)
+                  MonadCancel[F].uncancelable { poll =>
+                    ref
+                      .modify { entryRefs =>
+                        entryRefs.get(key).fold {
+                          (entryRefs.updated(key, entryRef), poll(load))
+                        } { entryRef =>
+                          (entryRefs, entryRef.get)
+                        }
                       }
-                    }
-                    .flatten
-                    .uncancelable
+                  }.flatten
+
                 }
             } {
               _.get
@@ -160,12 +161,14 @@ object LoadingCache {
 
       def put(key: K, value: V) = {
         def loaded = loadedOf(value, none)
+
         put1(key, loaded)
       }
 
 
       def put(key: K, value: V, release: F[Unit]) = {
         def loaded = loadedOf(value, release.some)
+
         put1(key, loaded)
       }
 
@@ -225,10 +228,10 @@ object LoadingCache {
         ref
           .getAndSet(EntryRefs.empty)
           .flatMap { entryRefs =>
-              entryRefs
-                .values
-                .toList
-                .parTraverse(_.release.start)
+            entryRefs
+              .values
+              .toList
+              .parTraverse(_.release.start)
           }
           .uncancelable
           .map(_.parTraverse_(_.join))

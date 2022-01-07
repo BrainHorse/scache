@@ -457,7 +457,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           release   <- Deferred[IO, Unit]
           _         <- fiber0.cancel
           _         <- deferred0.complete(Releasable(0, release.complete(()).void))
-          value     <- fiber1.join
+          value     <- fiber1.joinWithNever
           _         <- Sync[IO].delay { value shouldEqual 0 }
           _         <- cache.remove(0)
           _         <- release.get
@@ -476,7 +476,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           _        <- deferred.complete(0)
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join
+          value    <- fiber.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 1 }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual 1.some }
@@ -497,7 +497,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           _        <- release.get
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join
+          value    <- fiber.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 1 }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual 1.some }
@@ -514,7 +514,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           value    <- cache.put(0, 0)
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join
+          value    <- fiber.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0 }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual 0.some }
@@ -531,7 +531,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           value    <- cache.put(0, 0)
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join
+          value    <- fiber.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0 }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual 0.some }
@@ -550,7 +550,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           _        <- deferred.complete(TestError.raiseError[IO, Int])
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join
+          value    <- fiber.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 1 }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual 1.some }
@@ -569,7 +569,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           _        <- deferred.complete(TestError.raiseError[IO, Releasable[IO, Int]])
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join
+          value    <- fiber.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 1 }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual 1.some }
@@ -586,9 +586,9 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           value0   <- cache.getOrUpdateEnsure(0) { deferred.get }
           value1   <- cache.get(0).startEnsure
           _        <- deferred.complete(0)
-          value    <- value0.join
+          value    <- value0.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0 }
-          value    <- value1.join
+          value    <- value1.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0.some }
         } yield {}
       }
@@ -604,9 +604,9 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           value0   <- cache.getOrUpdateReleasableEnsure(0) { deferred.get }
           value1   <- cache.get(0).startEnsure
           _        <- deferred.complete(Releasable(0, released.get))
-          value    <- value0.join
+          value    <- value0.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0 }
-          value    <- value1.join
+          value    <- value1.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0.some }
           _        <- released.complete(())
         } yield {}
@@ -622,9 +622,9 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           value0   <- cache.getOrUpdateEnsure(0) { deferred.get.flatten }
           value1   <- cache.get(0).startEnsure
           _        <- deferred.complete(TestError.raiseError[IO, Int])
-          value    <- value0.join.attempt
+          value    <- value0.joinWithNever.attempt
           _        <- Sync[IO].delay { value shouldEqual TestError.asLeft }
-          value    <- value1.join
+          value    <- value1.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual none }
         } yield {}
       }
@@ -639,9 +639,9 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           value0   <- cache.getOrUpdateReleasableEnsure(0) { deferred.get.flatten }
           value1   <- cache.get(0).startEnsure
           _        <- deferred.complete(TestError.raiseError[IO, Releasable[IO, Int]])
-          value    <- value0.join.attempt
+          value    <- value0.joinWithNever.attempt
           _        <- Sync[IO].delay { value shouldEqual TestError.asLeft }
-          value    <- value1.join
+          value    <- value1.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual none }
         } yield {}
       }
@@ -656,7 +656,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           value0   <- cache.getOrUpdateEnsure(0) { deferred.get }
           value1   <- cache.remove(0)
           _        <- deferred.complete(0)
-          value    <- value0.join
+          value    <- value0.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0 }
           value    <- value1
           _        <- Sync[IO].delay { value shouldEqual 0.some }
@@ -675,11 +675,11 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           release  <- Deferred[IO, Unit]
           released <- Ref[IO].of(false)
           _        <- deferred.complete(Releasable(0, release.get *> released.set(true)))
-          value    <- fiber.join
+          value    <- fiber.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0 }
           value    <- value1.startEnsure
           _        <- release.complete(())
-          value    <- value.join
+          value    <- value.joinWithNever
           released <- released.get
           _        <- Sync[IO].delay { released shouldEqual true }
           _        <- Sync[IO].delay { value shouldEqual 0.some }
@@ -698,7 +698,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           _        <- deferred.complete(TestError.raiseError[IO, Int])
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join.attempt
+          value    <- fiber.joinWithNever.attempt
           _        <- Sync[IO].delay { value shouldEqual TestError.asLeft }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual none }
@@ -717,7 +717,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           _        <- deferred.complete(TestError.raiseError[IO, Releasable[IO, Int]])
           value    <- value
           _        <- Sync[IO].delay { value shouldEqual none }
-          value    <- fiber.join.attempt
+          value    <- fiber.joinWithNever.attempt
           _        <- Sync[IO].delay { value shouldEqual TestError.asLeft }
           value    <- cache.get(0)
           _        <- Sync[IO].delay { value shouldEqual none }
@@ -736,7 +736,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           _        <- cache.clear
           keys1    <- cache.keys
           _        <- deferred.complete(0)
-          value0   <- value0.join
+          value0   <- value0.joinWithNever
           keys2    <- cache.keys
         } yield {
           keys0 shouldEqual Set(0)
@@ -786,7 +786,7 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           release  <- Deferred[IO, Unit]
           released <- Ref[IO].of(false)
           _        <- deferred.complete(Releasable(0, release.get *> released.set(true)))
-          value    <- value.join
+          value    <- value.joinWithNever
           _        <- Sync[IO].delay { value shouldEqual 0 }
           keys     <- cache.keys
           _        <- Sync[IO].delay { keys shouldEqual Set.empty }
