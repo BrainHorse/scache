@@ -1,6 +1,6 @@
 package com.evolutiongaming.scache
 
-import cats.effect.{Concurrent, MonadCancel, Ref, Resource}
+import cats.effect.{Concurrent, Ref, Resource}
 import cats.effect.implicits._
 import cats.syntax.all._
 
@@ -84,17 +84,14 @@ object LoadingCache {
               EntryRef
                 .loading(loaded, ref.update { _ - key })
                 .flatMap { case (entryRef, load) =>
-                  MonadCancel[F].uncancelable { poll =>
-                    ref
-                      .modify { entryRefs =>
-                        entryRefs.get(key).fold {
-                          (entryRefs.updated(key, entryRef), poll(load))
-                        } { entryRef =>
-                          (entryRefs, entryRef.get)
-                        }
+                  ref
+                    .modify { entryRefs =>
+                      entryRefs.get(key).fold {
+                        (entryRefs.updated(key, entryRef), load)
+                      } { entryRef =>
+                        (entryRefs, entryRef.get)
                       }
-                  }.flatten
-
+                    }.flatten.uncancelable
                 }
             } {
               _.get

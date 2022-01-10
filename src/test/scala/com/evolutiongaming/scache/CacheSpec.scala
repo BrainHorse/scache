@@ -455,8 +455,8 @@ class CacheSpec extends AsyncFunSuite with Matchers {
           fiber0    <- cache.getOrUpdateReleasableEnsure(0) { deferred0.get }
           fiber1    <- cache.getOrUpdateReleasable(0) { Async[IO].never }.startEnsure
           release   <- Deferred[IO, Unit]
+          _         <- (IO.sleep(1.seconds) *> deferred0.complete(Releasable(0, release.complete(()).void))).start
           _         <- fiber0.cancel
-          _         <- deferred0.complete(Releasable(0, release.complete(()).void))
           value     <- fiber1.joinWithNever
           _         <- Sync[IO].delay { value shouldEqual 0 }
           _         <- cache.remove(0)
@@ -851,9 +851,9 @@ class CacheSpec extends AsyncFunSuite with Matchers {
       val result = cache.use { cache =>
         for {
           deferred <- Deferred[IO, Int]
+          _        <- (IO.sleep(1.seconds) *> deferred.complete(0)).start
           fiber    <- cache.getOrUpdateEnsure(0) { deferred.get }
           _        <- fiber.cancel
-          _        <- deferred.complete(0)
           value    <- cache.get(0)
         } yield {
           value shouldEqual 0.some
